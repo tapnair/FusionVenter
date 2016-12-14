@@ -1,0 +1,13 @@
+{
+	"autodeskProduct":	"Fusion360",
+	"type":	"addin",
+	"id":	"ef0fd5c6-8171-4231-ab8e-956317cb338b",
+	"author":	"Patrick Rainsberry",
+	"description":	{
+		"":	"Fusion 360 add-in for creating vent features\t\t"
+	},
+	"version":	"1.0",
+	"runOnStartup":	false,
+	"supportedOS":	"windows|mac",
+	"editEnabled":	true
+}
