@@ -83,26 +83,34 @@ def rectangle_vents(vent_width, vent_height, vent_border, number_width, number_h
     # Create the extrusion.
     ext = extrudes.add(ext_input)
 
-    ui.messageBox("Area = %f\n " % flow_area)
+    # ui.messageBox("Area = %f\n " % flow_area)
 
 
-def circle_vents(vent_radius, vent_border, number_axial, number_radial, center_point):
+def circle_boundary_extrude(vent_radius, center_point):
 
     # Create Boundary cutout Sketch
-    circle_cut_sketch, circle_cut_center_point = create_vent_sketch(center_point)
-    ref_circle_1 = circle_cut_sketch.sketchCurves.sketchCircles.addByCenterRadius(circle_cut_center_point, vent_radius)
+    boundary_sketch, circle_cut_center_point = create_vent_sketch(center_point)
+    boundary_curve = boundary_sketch.sketchCurves.sketchCircles.addByCenterRadius(circle_cut_center_point, vent_radius)
 
     # Target component for features
-    target_component = circle_cut_sketch.parentComponent
-    target_body = circle_cut_sketch.referencePlane.body
+    target_component = boundary_sketch.parentComponent
 
     # Create Boundary cutout feature
     extrudes = target_component.features.extrudeFeatures
-    circle_cut_input = extrudes.createInput(circle_cut_sketch.profiles[0],
-                                            adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
+    boundary_input = extrudes.createInput(boundary_sketch.profiles[0],
+                                          adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
     extent_all_ne = adsk.fusion.ThroughAllExtentDefinition.create(False)
-    circle_cut_input.setOneSideExtent(extent_all_ne, adsk.fusion.ExtentDirections.NegativeExtentDirection)
-    vent_outline_feature = extrudes.add(circle_cut_input)
+    boundary_input.setOneSideExtent(extent_all_ne, adsk.fusion.ExtentDirections.NegativeExtentDirection)
+    boundary_feature = extrudes.add(boundary_input)
+
+    boundary_end_face = boundary_feature.endFaces[0]
+    tool_body = boundary_feature.bodies[0]
+    target_body = boundary_sketch.referencePlane.body
+
+    return boundary_curve, boundary_end_face, tool_body, target_body
+
+
+def start_surface_sketch(center_point, boundary_curve):
 
     # Create Vent sketch
     vent_sketch, vent_center_point = create_vent_sketch(center_point)
@@ -111,20 +119,32 @@ def circle_vents(vent_radius, vent_border, number_axial, number_radial, center_p
     vent_constraints = vent_sketch.geometricConstraints
     vent_dims = vent_sketch.sketchDimensions
 
+    # Target component for features
+    target_component = vent_sketch.parentComponent
+
     # Reference circle from previous sketch
-    project_curves = vent_sketch.project(ref_circle_1)
-    ref_circle_2 = project_curves[0]
+    project_curves = vent_sketch.project(boundary_curve)
+    project_boundary = project_curves[0]
 
     # Create Collection for vent Profiles
     vent_profile_collection = adsk.core.ObjectCollection.create()
 
-    #Create first line
+    return vent_lines, vent_circles, vent_constraints, vent_dims, target_component, project_boundary, \
+        vent_profile_collection, vent_center_point
+
+
+def hub_spoke_sketch(vent_radius, number_axial, number_radial, center_point, boundary_curve):
+
+    vent_lines, vent_circles, vent_constraints, vent_dims, target_component, project_boundary, vent_profile_collection, \
+        vent_center_point = start_surface_sketch(center_point, boundary_curve)
+
+    # Create first line
     # TODO possible option to rotate this?
     line_1 = vent_lines.addByTwoPoints(vent_center_point,
                                        adsk.core.Point3D.create(0, vent_radius + vent_center_point.y, 0))
-    line_1.startSketchPoint.merge(ref_circle_2.centerSketchPoint)
+    line_1.startSketchPoint.merge(project_boundary.centerSketchPoint)
 
-    vent_constraints.addCoincident(line_1.endSketchPoint, ref_circle_2)
+    vent_constraints.addCoincident(line_1.endSketchPoint, project_boundary)
     vent_constraints.addVertical(line_1)
 
     vent_profile_collection.add(target_component.createOpenProfile(line_1))
@@ -137,9 +157,9 @@ def circle_vents(vent_radius, vent_border, number_axial, number_radial, center_p
                                                                     vent_radius * math.sin(angle) + vent_center_point.y,
                                                                     0))
 
-        line_2.startSketchPoint.merge(ref_circle_2.centerSketchPoint)
+        line_2.startSketchPoint.merge(project_boundary.centerSketchPoint)
 
-        vent_constraints.addCoincident(line_2.endSketchPoint, ref_circle_2)
+        vent_constraints.addCoincident(line_2.endSketchPoint, project_boundary)
 
         vent_dims.addAngularDimension(line_1, line_2,
                                       adsk.core.Point3D.create(1.5 * vent_radius * math.cos(angle/2) +
@@ -154,22 +174,27 @@ def circle_vents(vent_radius, vent_border, number_axial, number_radial, center_p
     for j in range(1, number_radial):
         radial_step = j * vent_radius/number_radial
         new_circle = vent_circles.addByCenterRadius(vent_center_point, radial_step)
-        new_circle.centerSketchPoint.merge(ref_circle_2.centerSketchPoint)
+        new_circle.centerSketchPoint.merge(project_boundary.centerSketchPoint)
         vent_dims.addRadialDimension(new_circle, adsk.core.Point3D.create(vent_center_point.x,
                                                                           vent_center_point.y + radial_step, 0))
         vent_profile_collection.add(target_component.createOpenProfile(new_circle))
 
-    ref_circle_2.isConstruction = True
+    project_boundary.isConstruction = True
 
-    # Create Surface Extrude:
-    # extrudes = target_component.features.extrudeFeatures
+    return vent_profile_collection, target_component
+
+
+# Create surface based vent Extrude:
+def vent_thick_extrude(vent_border, target_component, vent_profile_collection, boundary_end_face):
+
+    # Create Boundary cutout feature
+    extrudes = target_component.features.extrudeFeatures
+
     vent_surf_input = extrudes.createInput(vent_profile_collection,
                                            adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
     vent_surf_input.isSolid = False
-    # distance = adsk.core.ValueInput.createByReal(-1)
-    # extent_distance= adsk.fusion.adsk.fusion.DistanceExtentDefinition.create(distance)
 
-    to_extent = adsk.fusion.ToEntityExtentDefinition.create(vent_outline_feature.endFaces[0], False)
+    to_extent = adsk.fusion.ToEntityExtentDefinition.create(boundary_end_face, False)
     vent_surf_input.setOneSideExtent(to_extent, adsk.fusion.ExtentDirections.NegativeExtentDirection)
     vent_surf_feature = extrudes.add(vent_surf_input)
 
@@ -184,20 +209,42 @@ def circle_vents(vent_radius, vent_border, number_axial, number_radial, center_p
     thicken_input = thicken_features.createInput(input_surfaces, thickness, True,
                                                  adsk.fusion.FeatureOperations.NewBodyFeatureOperation, False)
     thickness_feature = thicken_features.add(thicken_input)
+    tool_body = thickness_feature.bodies[0]
+
+    return tool_body
+
+
+def vent_combine(target_body, tool_body, operation):
 
     # Create Combine Features
-    combine_features = target_component.features.combineFeatures
-    combine_cut_tools = adsk.core.ObjectCollection.create()
-    combine_cut_tools.add(vent_outline_feature.bodies[0])
-    combine_cut_input = combine_features.createInput(target_body, combine_cut_tools)
-    combine_cut_input.operation = adsk.fusion.FeatureOperations.CutFeatureOperation
-    combine_features.add(combine_cut_input)
+    combine_features = target_body.parentComponent.features.combineFeatures
+    combine_tools = adsk.core.ObjectCollection.create()
+    combine_tools.add(tool_body)
+    combine_input = combine_features.createInput(target_body, combine_tools)
+    combine_input.operation = operation
+    combine_features.add(combine_input)
 
-    combine_join_tools = adsk.core.ObjectCollection.create()
-    combine_join_tools.add(thickness_feature.bodies[0])
-    combine_join_input = combine_features.createInput(target_body, combine_join_tools)
-    combine_join_input.operation = adsk.fusion.FeatureOperations.JoinFeatureOperation
-    combine_features.add(combine_join_input)
+
+def create_hub_spoke_vent(vent_radius, vent_border, number_axial, number_radial, center_point):
+
+    # Create Circular Boundary sketch and Extrude
+    boundary_curve, boundary_end_face, boundary_tool_body, target_body = \
+        circle_boundary_extrude(vent_radius, center_point)
+
+    # Create Hub and Spoke Sketch
+    vent_profile_collection, target_component = \
+        hub_spoke_sketch(vent_radius, number_axial, number_radial, center_point, boundary_curve)
+
+    # Create Thicken Extrude Feature
+    thicken_tool_body = vent_thick_extrude(vent_border, target_component, vent_profile_collection, boundary_end_face)
+
+    # Combine Boundary (Cut)
+    operation = adsk.fusion.FeatureOperations.CutFeatureOperation
+    vent_combine(target_body, boundary_tool_body, operation)
+
+    # Combine Thicken (Join)
+    operation = adsk.fusion.FeatureOperations.JoinFeatureOperation
+    vent_combine(target_body, thicken_tool_body, operation)
 
 
 def get_inputs(command_inputs):
@@ -229,8 +276,8 @@ class VentMakerCommand(Fusion360CommandBase):
         #                 input_values['number_width'], input_values['number_height'],
         #                 input_values['center_point'])
 
-        circle_vents(input_values['vent_radius'], input_values['vent_border'], input_values['number_axial'],
-                     input_values['number_radial'], input_values['center_point'])
+        create_hub_spoke_vent(input_values['vent_radius'], input_values['vent_border'], input_values['number_axial'],
+                              input_values['number_radial'], input_values['center_point'])
 
         #TODO only if valid:
         args.isValidResult = True
