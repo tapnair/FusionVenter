@@ -1,21 +1,20 @@
-# Fusion360AddinSkeleton
-Framework to simplify the creation of Fusion 360 Addin
+# Fusion 360 Vent Maker
+Create vents quickly and easily
 
 Documentation to come later. For now:
 
 
 
 #Usage
-Fusion360Commandbase should not be modified.
+Select a sketch point to use as the center of the vent.
+The sketch point must lie on a planar face (not a reference plane)
+The face of the sketch will determine the component for the feature
+The vent will be cut normal to the face up to the next face it encounters.
 
-Rename Fusion360AddinSkeleton and the top level folder to your desired addin name.
-
-Edit the new file to input your desired command parameters.
-
-Edit Fusion360Command.py and add functionality to the desired methods.  
-
-onCreate: Build your UI components here
-
-onExecute: Will be executed when user selects OK in command dialog.
-
-
+#TODO / Enhancements:
+- Add ability to rotate vent
+- Add suppoprt for Blind and Through All end conditions
+- Significantly better error handling
+- Display Flow Area in proper units and calculate for circular
+- Defer preview checkbox to handle slow updates
+- Add more vent types and patterns
