@@ -85,6 +85,8 @@ def rectangle_vents(vent_width, vent_height, vent_border, number_width, number_h
                     adsk.fusion.FeatureOperations.CutFeatureOperation)
     # ui.messageBox("Area = %f\n " % flow_area)
 
+    return flow_area
+
 
 def to_next_extrude(profiles_, target_component, target_face, center_point_sketch, operation):
     # Get normal vector to face in opposite direction
@@ -152,7 +154,6 @@ def start_surface_sketch(center_point, boundary_curve):
 
 
 def hub_spoke_sketch(vent_radius, number_axial, number_radial, center_point, boundary_curve):
-
     vent_lines, vent_circles, vent_constraints, vent_dims, target_component, project_boundary, vent_center_point = \
         start_surface_sketch(center_point, boundary_curve)
 
@@ -208,7 +209,6 @@ def hub_spoke_sketch(vent_radius, number_axial, number_radial, center_point, bou
 
 # Create surface based vent Extrude:
 def vent_thick_extrude(vent_border, target_component, vent_profile_collection, boundary_end_face):
-
     # Create Extrude
     extrudes = target_component.features.extrudeFeatures
 
@@ -298,7 +298,7 @@ def get_inputs(command_inputs):
 
 
 def change_inputs(command_inputs, vent_type):
-    input_definitions = {'Common': ['center_input', 'vent_border', 'vent_type'],
+    input_definitions = {'Common': ['center_input', 'vent_border', 'vent_type', 'flow_area'],
                          'Circular': ['vent_radius', 'number_axial', 'number_radial'],
                          'Slot': ['vent_width', 'vent_height', 'number_width', 'number_height'],
                          'Rectangular': ['vent_width', 'vent_height', 'number_width', 'number_height', 'radius']}
@@ -319,9 +319,10 @@ class VentMakerCommand(Fusion360CommandBase):
         input_values = get_inputs(inputs)
 
         if input_values['vent_type'] == 'Rectangular':
-            rectangle_vents(input_values['vent_width'], input_values['vent_height'], input_values['vent_border'],
-                            input_values['number_width'], input_values['number_height'],
-                            input_values['center_point'], False, input_values['radius'])
+            area = rectangle_vents(input_values['vent_width'], input_values['vent_height'], input_values['vent_border'],
+                                   input_values['number_width'], input_values['number_height'],
+                                   input_values['center_point'], False, input_values['radius'])
+            inputs.itemById("flow_area").formattedText = str(area)
 
         elif input_values['vent_type'] == 'Circular':
             create_hub_spoke_vent(input_values['vent_radius'], input_values['vent_border'],
@@ -329,9 +330,10 @@ class VentMakerCommand(Fusion360CommandBase):
                                   input_values['number_radial'], input_values['center_point'])
 
         elif input_values['vent_type'] == 'Slot':
-            rectangle_vents(input_values['vent_width'], input_values['vent_height'], input_values['vent_border'],
-                            input_values['number_width'], input_values['number_height'],
-                            input_values['center_point'], True, input_values['radius'])
+            area = rectangle_vents(input_values['vent_width'], input_values['vent_height'], input_values['vent_border'],
+                                   input_values['number_width'], input_values['number_height'],
+                                   input_values['center_point'], True, input_values['radius'])
+            inputs.itemById("flow_area").formattedText = str(area)
 
         # TODO only if valid:
         args.isValidResult = True
@@ -392,5 +394,9 @@ class VentMakerCommand(Fusion360CommandBase):
         inputs.addIntegerSpinnerCommandInput('number_radial', 'Number of Hubs: ', 1, 99, 1, 3)
         inputs.addIntegerSpinnerCommandInput('number_axial', 'Number of Spokes: ', 1, 99, 1, 5)
 
+        inputs.addTextBoxCommandInput('flow_area', 'Total Air Flow Area (cm^2):', ' 0.0 ', 1, True)
+
         change_inputs(inputs, vent_type_input.selectedItem.name)
+
+
 
