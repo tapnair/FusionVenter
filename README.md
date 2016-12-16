@@ -1,6 +1,9 @@
 # Fusion 360 Vent Maker
 Create vents quickly and easily
 
+![ventMaker Cover](./Resources/ventMaker_cover.png)
+
+
 Documentation to come later. For now:
 
 
