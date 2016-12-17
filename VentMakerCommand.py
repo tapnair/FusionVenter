@@ -318,25 +318,34 @@ class VentMakerCommand(Fusion360CommandBase):
 
         input_values = get_inputs(inputs)
 
-        if input_values['vent_type'] == 'Rectangular':
-            area = rectangle_vents(input_values['vent_width'], input_values['vent_height'], input_values['vent_border'],
-                                   input_values['number_width'], input_values['number_height'],
-                                   input_values['center_point'], False, input_values['radius'])
-            inputs.itemById("flow_area").formattedText = str(area)
+        try:
 
-        elif input_values['vent_type'] == 'Circular':
-            create_hub_spoke_vent(input_values['vent_radius'], input_values['vent_border'],
-                                  input_values['number_axial'],
-                                  input_values['number_radial'], input_values['center_point'])
+            if input_values['vent_type'] == 'Rectangular':
+                area = rectangle_vents(input_values['vent_width'], input_values['vent_height'], input_values['vent_border'],
+                                       input_values['number_width'], input_values['number_height'],
+                                       input_values['center_point'], False, input_values['radius'])
+                inputs.itemById("flow_area").formattedText = str(area)
 
-        elif input_values['vent_type'] == 'Slot':
-            area = rectangle_vents(input_values['vent_width'], input_values['vent_height'], input_values['vent_border'],
-                                   input_values['number_width'], input_values['number_height'],
-                                   input_values['center_point'], True, input_values['radius'])
-            inputs.itemById("flow_area").formattedText = str(area)
+            elif input_values['vent_type'] == 'Circular':
+                create_hub_spoke_vent(input_values['vent_radius'], input_values['vent_border'],
+                                      input_values['number_axial'],
+                                      input_values['number_radial'], input_values['center_point'])
 
-        # TODO only if valid:
-        args.isValidResult = True
+            elif input_values['vent_type'] == 'Slot':
+                area = rectangle_vents(input_values['vent_width'], input_values['vent_height'], input_values['vent_border'],
+                                       input_values['number_width'], input_values['number_height'],
+                                       input_values['center_point'], True, input_values['radius'])
+                inputs.itemById("flow_area").formattedText = str(area)
+
+            # TODO only if valid:
+            args.isValidResult = True
+
+        except:
+            app = adsk.core.Application.get()
+            ui = app.userInterface
+            ui.messageBox('Sorry those inputs are invalid. \n \n' +
+                          'Ensure the values are appropriate and tha there is a clear path to the  termination face.\n'
+                          + 'Better Error reporting coming soon!!!')
 
     # Runs when the command is destroyed.  Sometimes useful for cleanup after the fact
     def onDestroy(self, command, inputs, reason_):
