@@ -5,8 +5,11 @@ from .Fusion360CommandBase import Fusion360CommandBase
 
 # Ideas:
 # TODO defer preview check box
-# TODO Flow Area
+# TODO setup debug time log and find the slow culprit
+# TODO Flow Area for Circle
+# TODO Flow area units
 # TODO Other shapes, Arcs in grid?
+
 
 def create_vent_sketch(center_point):
     # Get Component for feature
