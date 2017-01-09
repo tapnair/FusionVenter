@@ -31,8 +31,13 @@ def create_vent_sketch(center_point):
     target_face = target_component.findBRepUsingPoint(world_point, 1)
     perf_log(log, 'CVS', 'find brep')
 
-    sketch = sketches.add(target_face[0])
-    perf_log(log, 'CVS', 'Create Sketch')
+    try:
+        sketch = sketches.add(target_face[0])
+        perf_log(log, 'CVS', 'Create Sketch')
+
+    except:
+        adsk.core.Application.get().userInterface.messageBox('The point you selected does not lie on a valid face\n' +
+                                                             'The Vent cannot be built')
 
     for curve in sketch.sketchCurves:
         curve.isConstruction = True
@@ -137,8 +142,14 @@ def to_next_extrude(profiles_, target_component, target_face, center_point_sketc
     ext_input.setOneSideExtent(to_next_extent, adsk.fusion.ExtentDirections.PositiveExtentDirection)
     perf_log(log, 'TNE', 'Setup Extrude', name)
 
-    extrude_feature = extrudes.add(ext_input)
-    perf_log(log, 'TNE', 'Create Extrude', name)
+    try:
+        extrude_feature = extrudes.add(ext_input)
+        perf_log(log, 'TNE', 'Create Extrude', name)
+
+    except:
+        app = adsk.core.Application.get()
+        ui = app.userInterface
+        ui.messageBox('Sorry it looks like your vent is not completely terminated by the opposite face')
 
     return extrude_feature
 
@@ -416,40 +427,51 @@ class VentMakerCommand(Fusion360CommandBase):
     # Runs when Fusion command would generate a preview after all inputs are valid or changed
     def onPreview(self, command, inputs, args):
 
+        timeline  = adsk.core.Application.get().activeProduct.timeline
+
+        start_index = timeline.markerPosition
+
+        log.clear()
         input_values = get_inputs(inputs)
 
-        # try:
+        try:
 
-        if input_values['vent_type'] == 'Rectangular':
-            perf_log(log, 'onP', 'Rectangular')
-            area = rectangle_vents(input_values['vent_width'], input_values['vent_height'], input_values['vent_border'],
-                                   input_values['number_width'], input_values['number_height'],
-                                   input_values['center_point'], False, input_values['radius'])
-            inputs.itemById("flow_area").formattedText = str(area)
+            if input_values['vent_type'] == 'Rectangular':
+                perf_log(log, 'onP', 'Rectangular')
+                area = rectangle_vents(input_values['vent_width'], input_values['vent_height'], input_values['vent_border'],
+                                       input_values['number_width'], input_values['number_height'],
+                                       input_values['center_point'], False, input_values['radius'])
+                inputs.itemById("flow_area").formattedText = str(area)
 
-        elif input_values['vent_type'] == 'Circular':
-            perf_log(log, 'onP', 'Circular')
-            create_hub_spoke_vent(input_values['vent_radius'], input_values['vent_border'],
-                                  input_values['number_axial'],
-                                  input_values['number_radial'], input_values['center_point'])
+            elif input_values['vent_type'] == 'Circular':
+                perf_log(log, 'onP', 'Circular')
+                create_hub_spoke_vent(input_values['vent_radius'], input_values['vent_border'],
+                                      input_values['number_axial'],
+                                      input_values['number_radial'], input_values['center_point'])
 
-        elif input_values['vent_type'] == 'Slot':
-            perf_log(log, 'onP', 'Slot')
-            area = rectangle_vents(input_values['vent_width'], input_values['vent_height'], input_values['vent_border'],
-                                   input_values['number_width'], input_values['number_height'],
-                                   input_values['center_point'], True, input_values['radius'])
-            inputs.itemById("flow_area").formattedText = str(area)
+            elif input_values['vent_type'] == 'Slot':
+                perf_log(log, 'onP', 'Slot')
+                area = rectangle_vents(input_values['vent_width'], input_values['vent_height'], input_values['vent_border'],
+                                       input_values['number_width'], input_values['number_height'],
+                                       input_values['center_point'], True, input_values['radius'])
+                inputs.itemById("flow_area").formattedText = str(area)
 
-        # TODO only if valid:
-        args.isValidResult = True
-        perf_message(log)
+            args.isValidResult = True
+
+            end_index = timeline.markerPosition-1
+
+            timeline.timelineGroups.add(start_index, end_index)
+
+            # Enable for debug logging
+            # perf_message(log)
         
-        # except:
-        #     app = adsk.core.Application.get()
-        #     ui = app.userInterface
-        #     ui.messageBox('Sorry those inputs are invalid. \n \n' +
-        #                   'Ensure the values are appropriate and tha there is a clear path to the  termination face.\n'
-        #                   + 'Better Error reporting coming soon!!!')
+        except:
+            args.isValidResult = False
+            app = adsk.core.Application.get()
+            ui = app.userInterface
+            ui.messageBox('Sorry those inputs are invalid. \n \n' +
+                          'Better Error reporting coming soon!!!')
+            ui.messageBox('Vent Failed:\n {}'.format(traceback.format_exc()))
 
     # Runs when the command is destroyed.  Sometimes useful for cleanup after the fact
     def onDestroy(self, command, inputs, reason_):
@@ -467,6 +489,7 @@ class VentMakerCommand(Fusion360CommandBase):
 
     # Runs when user selects your command from Fusion UI, Build UI here
     def onCreate(self, command, inputs):
+
         app = adsk.core.Application.get()
         product = app.activeProduct
         design = adsk.fusion.Design.cast(product)

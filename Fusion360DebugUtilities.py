@@ -5,8 +5,6 @@ import time
 import os
 from os.path import expanduser
 
-minimum_perf_time = .01
-
 
 # Print a list of list of variables
 # Format of variables should be [[Variable name 1, variable value 1], [Variable name 2, variable value 2], ...]
@@ -30,6 +28,7 @@ def perf_log(log, function_reference, command, identifier=''):
 
 def perf_message(log):
 
+    minimum_perf_time = .01
     message_string = ''
 
     log_file_name = get_log_file_name()
