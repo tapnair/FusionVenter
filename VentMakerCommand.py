@@ -50,7 +50,6 @@ def create_vent_sketch(center_point):
 
 
 def rectangle_vents(vent_width, vent_height, vent_border, number_width, number_height, center_point, slot, radius_in):
-
     # Initialize a sketch
     sketch, center_point_sketch, target_component, target_face = create_vent_sketch(center_point)
     perf_log(log, 'RV', 'create_vent_sketch')
@@ -146,14 +145,15 @@ def to_next_extrude(profiles_, target_component, target_face, center_point_sketc
         extrude_feature = extrudes.add(ext_input)
         perf_log(log, 'TNE', 'Create Extrude', name)
 
-    except:
-        app = adsk.core.Application.get()
-        ui = app.userInterface
-        ui.messageBox('Sorry it looks like your vent is not completely terminated by the opposite face')
+        return extrude_feature
 
-    return extrude_feature
+    except Exception as e:
+        # adsk.core.Application.get().userInterface.messageBox('Sorry it looks like your vent is not completely '
+        #                                                      'terminated by the opposite face\n\n' + repr(e))
+        raise
 
 
+# Not currently used, would create a through all extrude
 def through_all_extrude(profiles_, target_component, operation):
     # Create Boundary cutout feature
     extrudes = target_component.features.extrudeFeatures
@@ -165,14 +165,17 @@ def through_all_extrude(profiles_, target_component, operation):
     return boundary_feature
 
 
+# Create extruded body for vent outline
 def circle_boundary_extrude(vent_radius, center_point):
-    # Create Boundary cutout Sketch
+    # Create Boundary Sketch
     boundary_sketch, center_point_sketch, target_component, target_face = create_vent_sketch(center_point)
     perf_log(log, 'CBE', 'create_vent_sketch')
 
+    # Create circle for vent boundary
     boundary_curve = boundary_sketch.sketchCurves.sketchCircles.addByCenterRadius(center_point_sketch, vent_radius)
     perf_log(log, 'CBE', 'Draw Circle')
 
+    # Create extrude
     boundary_feature = to_next_extrude(boundary_sketch.profiles[0], target_component, target_face, center_point_sketch,
                                        adsk.fusion.FeatureOperations.NewBodyFeatureOperation, 'Circle Boundary')
     perf_log(log, 'CBE', 'to_next_extrude')
@@ -185,35 +188,22 @@ def circle_boundary_extrude(vent_radius, center_point):
     return boundary_curve, boundary_end_face, tool_body, target_body
 
 
-# Beginning of a surface sketch
-def start_surface_sketch(center_point, boundary_curve):
-
+# Creates Sketch for hub-spoke
+def hub_spoke_sketch(vent_radius, number_axial, number_radial, center_point, boundary_curve):
     # Create Vent sketch
     vent_sketch, vent_center_point, target_component, target_face = create_vent_sketch(center_point)
-    perf_log(log, 'SSS', 'create_vent_sketch')
+    perf_log(log, 'HSS', 'create_vent_sketch')
 
     vent_lines = vent_sketch.sketchCurves.sketchLines
     vent_circles = vent_sketch.sketchCurves.sketchCircles
     vent_constraints = vent_sketch.geometricConstraints
     vent_dims = vent_sketch.sketchDimensions
-
-    perf_log(log, 'SSS', 'Get Feature References')
+    perf_log(log, 'HSS', 'Get Feature References')
 
     # Reference circle from previous sketch
     project_curves = vent_sketch.project(boundary_curve)
-    perf_log(log, 'SSS', 'project sketch')
-
     project_boundary = project_curves[0]
-
-    return vent_lines, vent_circles, vent_constraints, vent_dims, target_component, project_boundary, vent_center_point
-
-
-# Creates Sketch for hub-spoke
-def hub_spoke_sketch(vent_radius, number_axial, number_radial, center_point, boundary_curve):
-
-    vent_lines, vent_circles, vent_constraints, vent_dims, target_component, project_boundary, vent_center_point = \
-        start_surface_sketch(center_point, boundary_curve)
-    perf_log(log, 'HSS', 'Start_surf_sketch')
+    perf_log(log, 'HSS', 'project sketch')
 
     center_point_geom = vent_center_point.geometry
     perf_log(log, 'HSS', 'Get Feature References')
@@ -288,7 +278,6 @@ def hub_spoke_sketch(vent_radius, number_axial, number_radial, center_point, bou
 
 # Create surface based vent Extrude:
 def vent_thick_extrude(vent_border, target_component, vent_profile_collection, boundary_end_face):
-
     # Create Extrude
     extrudes = target_component.features.extrudeFeatures
     perf_log(log, 'VTE', 'Get Collection')
@@ -330,7 +319,6 @@ def vent_thick_extrude(vent_border, target_component, vent_profile_collection, b
 
 
 def vent_combine(target_body, tool_body, operation, name=''):
-
     combine_tools = adsk.core.ObjectCollection.create()
     perf_log(log, 'VTE', 'Create Collection')
 
@@ -348,7 +336,6 @@ def vent_combine(target_body, tool_body, operation, name=''):
 
 
 def create_hub_spoke_vent(vent_radius, vent_border, number_axial, number_radial, center_point):
-
     perf_log(log, 'CSHV', 'Start_Hub_Spoke')
 
     # Create Circular Boundary sketch and Extrude
@@ -423,11 +410,11 @@ def change_inputs(command_inputs, vent_type):
 # The following will define a command in a tool bar panel
 class VentMakerCommand(Fusion360CommandBase):
     # Runs when Fusion command would generate a preview after all inputs are valid or changed
-    def onPreview(self, command, inputs, args):
+    def on_preview(self, command, inputs, args):
 
-        timeline  = adsk.core.Application.get().activeProduct.timeline
+        time_line = adsk.core.Application.get().activeProduct.timeline
 
-        start_index = timeline.markerPosition
+        start_index = time_line.markerPosition
 
         log.clear()
         input_values = get_inputs(inputs)
@@ -436,7 +423,8 @@ class VentMakerCommand(Fusion360CommandBase):
 
             if input_values['vent_type'] == 'Rectangular':
                 perf_log(log, 'onP', 'Rectangular')
-                area = rectangle_vents(input_values['vent_width'], input_values['vent_height'], input_values['vent_border'],
+                area = rectangle_vents(input_values['vent_width'], input_values['vent_height'],
+                                       input_values['vent_border'],
                                        input_values['number_width'], input_values['number_height'],
                                        input_values['center_point'], False, input_values['radius'])
                 inputs.itemById("flow_area").formattedText = str(area)
@@ -449,44 +437,43 @@ class VentMakerCommand(Fusion360CommandBase):
 
             elif input_values['vent_type'] == 'Slot':
                 perf_log(log, 'onP', 'Slot')
-                area = rectangle_vents(input_values['vent_width'], input_values['vent_height'], input_values['vent_border'],
+                area = rectangle_vents(input_values['vent_width'], input_values['vent_height'],
+                                       input_values['vent_border'],
                                        input_values['number_width'], input_values['number_height'],
                                        input_values['center_point'], True, input_values['radius'])
                 inputs.itemById("flow_area").formattedText = str(area)
 
             args.isValidResult = True
 
-            end_index = timeline.markerPosition-1
+            end_index = time_line.markerPosition - 1
 
-            timeline.timelineGroups.add(start_index, end_index)
+            time_line.timelineGroups.add(start_index, end_index)
 
             # Enable for debug logging
             # perf_message(log)
-        
-        except:
+
+        except Exception as e:
             args.isValidResult = False
-            app = adsk.core.Application.get()
-            ui = app.userInterface
-            ui.messageBox('Sorry those inputs are invalid. \n \n' +
-                          'Better Error reporting coming soon!!!')
-            ui.messageBox('Vent Failed:\n {}'.format(traceback.format_exc()))
+            adsk.core.Application.get().userInterface.messageBox('Sorry those inputs are invalid. \n \n' +
+                                                                 'Please Try Again\n \n' + repr(e))
+            # ui.messageBox('Vent Failed:\n {}'.format(traceback.format_exc()))
 
     # Runs when the command is destroyed.  Sometimes useful for cleanup after the fact
-    def onDestroy(self, command, inputs, reason_):
+    def on_destroy(self, command, inputs, reason_):
         pass
 
     # Runs when when any input in the command dialog is changed
-    def onInputChanged(self, command, inputs, changedInput):
-        if changedInput.id == 'vent_type':
+    def on_input_changed(self, command, inputs, changed_input):
+        if changed_input.id == 'vent_type':
             input_values = get_inputs(inputs)
             change_inputs(inputs, input_values['vent_type'])
 
     # Runs when the user presses ok button
-    def onExecute(self, command, inputs):
+    def on_execute(self, command, inputs):
         pass
 
     # Runs when user selects your command from Fusion UI, Build UI here
-    def onCreate(self, command, inputs):
+    def on_create(self, command, inputs):
 
         app = adsk.core.Application.get()
         product = app.activeProduct

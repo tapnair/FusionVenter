@@ -29,7 +29,7 @@ for cmd_def in command_defs:
 
 def run(context):
     for command in commands:
-        command.onRun()
+        command.on_run()
 
 
 def stop(context):
