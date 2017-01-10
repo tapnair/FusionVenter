@@ -178,14 +178,14 @@ def circle_boundary_extrude(vent_radius, center_point):
     perf_log(log, 'CBE', 'to_next_extrude')
 
     boundary_end_face = boundary_feature.endFaces[0]
-    tool_body = []
-    tool_body.append(boundary_feature.bodies[0])
+    tool_body = [boundary_feature.bodies[0]]
     target_body = boundary_sketch.referencePlane.body
     perf_log(log, 'CBE', 'Get Feature References')
 
     return boundary_curve, boundary_end_face, tool_body, target_body
 
 
+# Beginning of a surface sketch
 def start_surface_sketch(center_point, boundary_curve):
 
     # Create Vent sketch
@@ -208,6 +208,7 @@ def start_surface_sketch(center_point, boundary_curve):
     return vent_lines, vent_circles, vent_constraints, vent_dims, target_component, project_boundary, vent_center_point
 
 
+# Creates Sketch for hub-spoke
 def hub_spoke_sketch(vent_radius, number_axial, number_radial, center_point, boundary_curve):
 
     vent_lines, vent_circles, vent_constraints, vent_dims, target_component, project_boundary, vent_center_point = \
@@ -265,8 +266,6 @@ def hub_spoke_sketch(vent_radius, number_axial, number_radial, center_point, bou
         perf_log(log, 'HSS', 'Add To Collection', 'Line-' + str(i))
 
         line_1 = line_2
-
-
 
     # Build Radial Circles:
     for j in range(1, number_radial):
@@ -350,7 +349,6 @@ def vent_combine(target_body, tool_body, operation, name=''):
 
 def create_hub_spoke_vent(vent_radius, vent_border, number_axial, number_radial, center_point):
 
-    log.clear()
     perf_log(log, 'CSHV', 'Start_Hub_Spoke')
 
     # Create Circular Boundary sketch and Extrude
