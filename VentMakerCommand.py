@@ -1,14 +1,17 @@
 import math
-import adsk.core, adsk.fusion, traceback
 
-from .Fusion360CommandBase import Fusion360CommandBase
-from .Fusion360DebugUtilities import perf_log, variable_message, perf_message
+import traceback
+
+import adsk.core
+import adsk.fusion
+from .Fusion360CommandBase import Fusion360CommandBase, get_inputs
+from .Fusion360DebugUtilities import perf_log
+
 
 # Ideas:
 # TODO defer preview check box
-# TODO setup debug time log and find the slow culprit
 # TODO Flow Area for Circle
-# TODO Flow area units
+# TODO Flow area units still off for rectangle?
 # TODO Other shapes, Arcs in grid?
 
 log = []
@@ -49,20 +52,27 @@ def create_vent_sketch(center_point):
     return sketch, center_point_sketch[0], target_component, target_face[0]
 
 
+# Creates Rectangular Vents
 def rectangle_vents(vent_width, vent_height, vent_border, number_width, number_height, center_point, slot, radius_in):
     # Initialize a sketch
     sketch, center_point_sketch, target_component, target_face = create_vent_sketch(center_point)
     perf_log(log, 'RV', 'create_vent_sketch')
 
+    target_body = sketch.referencePlane.body
+
     rect_width = (vent_width - ((number_width + 1.0) * vent_border)) / number_width
     rect_height = (vent_height - ((number_height + 1.0) * vent_border)) / number_height
+    x_distance = (rect_width + vent_border)
+    y_distance = (rect_height + vent_border)
     perf_log(log, 'RV', 'Math')
+
     if slot:
         radius = min(rect_width, rect_height) / 2.0
 
     else:
         radius = radius_in
     perf_log(log, 'RV', 'Math')
+
     vent_origin_x = center_point_sketch.geometry.x - vent_width / 2
     vent_origin_y = center_point_sketch.geometry.y - vent_height / 2
     perf_log(log, 'RV', 'Math')
@@ -70,53 +80,133 @@ def rectangle_vents(vent_width, vent_height, vent_border, number_width, number_h
     lines = sketch.sketchCurves.sketchLines
     perf_log(log, 'RV', 'Get Feature References', 'Lines')
 
-    for i in range(0, number_width):
-        for j in range(0, number_height):
+    # Draw a rectangle
+    rect_center_point_x = (rect_width / 2 + vent_border) + vent_origin_x
+    rect_center_point_y = (rect_height / 2 + vent_border) + vent_origin_y
+    perf_log(log, 'RV', 'Math')
 
-            # Draw a rectangle
-            rect_center_point_x = (rect_width / 2 + vent_border) + i * (rect_width + vent_border) + vent_origin_x
-            rect_center_point_y = (rect_height / 2 + vent_border) + j * (rect_height + vent_border) + vent_origin_y
-            perf_log(log, 'RV', 'Math')
+    rect = lines.addCenterPointRectangle(adsk.core.Point3D.create(rect_center_point_x,
+                                                                  rect_center_point_y, 0),
+                                         adsk.core.Point3D.create(rect_center_point_x + rect_width / 2,
+                                                                  rect_center_point_y + rect_height / 2, 0))
+    perf_log(log, 'RV', 'Draw Line', 'Center Rectangle')
 
-            rect = lines.addCenterPointRectangle(adsk.core.Point3D.create(rect_center_point_x,
-                                                                          rect_center_point_y, 0),
-                                                 adsk.core.Point3D.create(rect_center_point_x + rect_width / 2,
-                                                                          rect_center_point_y + rect_height / 2, 0))
-            perf_log(log, 'RV', 'Draw Line', 'Center Rectangle')
+    if radius > 0:
+        # Fillet Rectangle
+        sketch.sketchCurves.sketchArcs.addFillet(rect[0], rect[0].endSketchPoint.geometry,
+                                                 rect[1], rect[1].startSketchPoint.geometry, radius)
+        perf_log(log, 'RV', 'Draw Fillet', 'Fillet 1')
+        sketch.sketchCurves.sketchArcs.addFillet(rect[1], rect[1].endSketchPoint.geometry,
+                                                 rect[2], rect[2].startSketchPoint.geometry, radius)
+        perf_log(log, 'RV', 'Draw Fillet', 'Fillet 2')
+        sketch.sketchCurves.sketchArcs.addFillet(rect[2], rect[2].endSketchPoint.geometry,
+                                                 rect[3], rect[3].startSketchPoint.geometry, radius)
+        perf_log(log, 'RV', 'Draw Fillet', 'Fillet 3')
+        sketch.sketchCurves.sketchArcs.addFillet(rect[3], rect[3].endSketchPoint.geometry,
+                                                 rect[0], rect[0].startSketchPoint.geometry, radius)
+        perf_log(log, 'RV', 'Draw Fillet', 'Fillet 4')
 
-            if radius > 0:
-                # Fillet Rectangle
-                sketch.sketchCurves.sketchArcs.addFillet(rect[0], rect[0].endSketchPoint.geometry,
-                                                         rect[1], rect[1].startSketchPoint.geometry, radius)
-                perf_log(log, 'RV', 'Draw Fillet', 'Fillet 1')
-                sketch.sketchCurves.sketchArcs.addFillet(rect[1], rect[1].endSketchPoint.geometry,
-                                                         rect[2], rect[2].startSketchPoint.geometry, radius)
-                perf_log(log, 'RV', 'Draw Fillet', 'Fillet 2')
-                sketch.sketchCurves.sketchArcs.addFillet(rect[2], rect[2].endSketchPoint.geometry,
-                                                         rect[3], rect[3].startSketchPoint.geometry, radius)
-                perf_log(log, 'RV', 'Draw Fillet', 'Fillet 3')
-                sketch.sketchCurves.sketchArcs.addFillet(rect[3], rect[3].endSketchPoint.geometry,
-                                                         rect[0], rect[0].startSketchPoint.geometry, radius)
-                perf_log(log, 'RV', 'Draw Fillet', 'Fillet 4')
-
-    # Create Collection for all extrusion Profiles
-    profiles_ = adsk.core.ObjectCollection.create()
+    # Create Collection for extrusion Profile
+    profiles = adsk.core.ObjectCollection.create()
     perf_log(log, 'RV', 'Create Collection')
 
+    profile = sketch.profiles[0]
+    profiles.add(profile)
+    perf_log(log, 'RV', 'Add to Collection')
+
     # Calculate the total flow area
-    flow_area = 0.0
-    for profile in sketch.profiles:
-        area_props = profile.areaProperties()
-        flow_area += area_props.area
-        profiles_.add(profile)
+    area_props = profile.areaProperties()
+    flow_area = area_props.area * number_width * number_height
     perf_log(log, 'RV', 'Calculate Flow Area')
 
-    # Create extrude cut of profiles
-    to_next_extrude(profiles_, target_component, target_face, center_point_sketch,
-                    adsk.fusion.FeatureOperations.CutFeatureOperation, "Rectangle Cut")
+    # Create extrude body of profile
+    single_vent_feature = to_next_extrude(profiles, target_component, target_face, center_point_sketch,
+                                          adsk.fusion.FeatureOperations.NewBodyFeatureOperation, "Single Rectangle")
     perf_log(log, 'RV', 'to_next_extrude')
 
+    # Get a bodies collection from the extrude
+    single_vent_bodies = get_body_from_feature(single_vent_feature)
+    perf_log(log, 'RV', 'get_bodies')
+
+    # Pattern the bodies
+    pattern_bodies = rect_body_pattern(target_component, single_vent_bodies, sketch.xDirection, sketch.yDirection,
+                                       number_width, x_distance, number_height, y_distance)
+    perf_log(log, 'RV', 'pattern_bodies')
+
+    # Combine Boundary (Cut)
+    operation = adsk.fusion.FeatureOperations.CutFeatureOperation
+    vent_combine(target_body, pattern_bodies, operation, 'Cut Rectangles')
+
     return flow_area
+
+
+# Returns collection of bodies created from input feature
+def get_body_from_feature(feature):
+    # Create collection for bodies
+    feature_bodies = adsk.core.ObjectCollection.create()
+
+    for body in feature.bodies:
+        # Add Body to collection
+        feature_bodies.add(body)
+
+    return feature_bodies
+
+
+# Creates rectangle pattern of bodies based on vectors
+def rect_body_pattern(target_component, bodies, x_axis, y_axis, x_qty, x_distance, y_qty, y_distance):
+    move_feats = target_component.features.moveFeatures
+    perf_log(log, 'PB', 'Get Features')
+
+    x_bodies = adsk.core.ObjectCollection.create()
+    all_bodies = adsk.core.ObjectCollection.create()
+
+    for body in bodies:
+        x_bodies.add(body)
+        all_bodies.add(body)
+
+    for i in range(1, x_qty):
+
+        # Create a collection of entities for move
+        x_source = adsk.core.ObjectCollection.create()
+
+        for body in bodies:
+            new_body = body.copyToComponent(target_component)
+            x_source.add(new_body)
+            x_bodies.add(new_body)
+            all_bodies.add(new_body)
+            perf_log(log, 'PB', 'Copy Bodies')
+
+        x_transform = adsk.core.Matrix3D.create()
+        x_axis.normalize()
+        x_axis.scaleBy(x_distance * i)
+        x_transform.translation = x_axis
+        perf_log(log, 'PB', 'Get Transform')
+
+        move_input_x = move_feats.createInput(x_source, x_transform)
+        move_feats.add(move_input_x)
+        perf_log(log, 'PB', 'Move Feature')
+
+    for j in range(1, y_qty):
+        # Create a collection of entities for move
+        y_source = adsk.core.ObjectCollection.create()
+
+        for body in x_bodies:
+            new_body = body.copyToComponent(target_component)
+            y_source.add(new_body)
+            all_bodies.add(new_body)
+            perf_log(log, 'PB', 'Copy Bodies')
+
+        y_transform = adsk.core.Matrix3D.create()
+        y_axis.normalize()
+        y_axis.scaleBy(y_distance * j)
+        y_transform.translation = y_axis
+        perf_log(log, 'PB', 'Get Transform')
+
+        move_input_y = move_feats.createInput(y_source, y_transform)
+        move_feats.add(move_input_y)
+        perf_log(log, 'PB', 'Move Feature')
+
+    return all_bodies
 
 
 def to_next_extrude(profiles_, target_component, target_face, center_point_sketch, operation, name=''):
@@ -148,8 +238,8 @@ def to_next_extrude(profiles_, target_component, target_face, center_point_sketc
         return extrude_feature
 
     except Exception as e:
-        # adsk.core.Application.get().userInterface.messageBox('Sorry it looks like your vent is not completely '
-        #                                                      'terminated by the opposite face\n\n' + repr(e))
+        adsk.core.Application.get().userInterface.messageBox('Sorry it looks like your vent is not completely '
+                                                             'terminated by the opposite face\n\n')
         raise
 
 
@@ -363,38 +453,21 @@ def create_hub_spoke_vent(vent_radius, vent_border, number_axial, number_radial,
     perf_log(log, 'CSHV', 'vent_combine')
 
 
-def get_inputs(command_inputs):
-    value_types = [adsk.core.BoolValueCommandInput.classType(), adsk.core.DistanceValueCommandInput.classType(),
-                   adsk.core.FloatSliderCommandInput.classType(), adsk.core.FloatSpinnerCommandInput.classType(),
-                   adsk.core.IntegerSliderCommandInput.classType(), adsk.core.IntegerSpinnerCommandInput.classType(),
-                   adsk.core.ValueCommandInput.classType(), adsk.core.SliderCommandInput.classType()]
+# Formats the area into a string in the current units
+def get_area_string(area):
+    app = adsk.core.Application.get()
+    product = app.activeProduct
+    design = adsk.fusion.Design.cast(product)
+    units_manager = design.unitsManager
 
-    list_types = [adsk.core.ButtonRowCommandInput.classType(), adsk.core.DropDownCommandInput.classType(),
-                  adsk.core.RadioButtonGroupCommandInput.classType()]
-    input_values = {}
-    input_values.clear()
+    area_string = units_manager.formatInternalValue(area, design.unitsManager.defaultLengthUnits + '^2', True)
 
-    center_input = command_inputs.itemById("center_input")
-    if center_input.selectionCount > 0:
-        input_values['center_point'] = center_input.selection(0).entity
-
-    for command_input in command_inputs:
-        if command_input.objectType in value_types:
-            input_values[command_input.id] = command_input.value
-            input_values[command_input.id + '_input'] = command_input
-
-        elif command_input.objectType in list_types:
-            input_values[command_input.id] = command_input.selectedItem.name
-            input_values[command_input.id + '_input'] = command_input
-        else:
-            input_values[command_input.id] = command_input.name
-            input_values[command_input.id + '_input'] = command_input
-
-    return input_values
+    return area_string
 
 
+# Updates the visible fields based on vent type selection
 def change_inputs(command_inputs, vent_type):
-    input_definitions = {'Common': ['center_input', 'vent_border', 'vent_type', 'flow_area'],
+    input_definitions = {'Common': ['center_point', 'vent_border', 'vent_type'],
                          'Circular': ['vent_radius', 'number_axial', 'number_radial'],
                          'Slot': ['vent_width', 'vent_height', 'number_width', 'number_height'],
                          'Rectangular': ['vent_width', 'vent_height', 'number_width', 'number_height', 'radius']}
@@ -409,6 +482,7 @@ def change_inputs(command_inputs, vent_type):
 
 # The following will define a command in a tool bar panel
 class VentMakerCommand(Fusion360CommandBase):
+
     # Runs when Fusion command would generate a preview after all inputs are valid or changed
     def on_preview(self, command, inputs, args):
 
@@ -426,22 +500,25 @@ class VentMakerCommand(Fusion360CommandBase):
                 area = rectangle_vents(input_values['vent_width'], input_values['vent_height'],
                                        input_values['vent_border'],
                                        input_values['number_width'], input_values['number_height'],
-                                       input_values['center_point'], False, input_values['radius'])
-                inputs.itemById("flow_area").formattedText = str(area)
+                                       input_values['center_point'][0], False, input_values['radius'])
 
             elif input_values['vent_type'] == 'Circular':
                 perf_log(log, 'onP', 'Circular')
                 create_hub_spoke_vent(input_values['vent_radius'], input_values['vent_border'],
                                       input_values['number_axial'],
-                                      input_values['number_radial'], input_values['center_point'])
+                                      input_values['number_radial'], input_values['center_point'][0])
 
             elif input_values['vent_type'] == 'Slot':
                 perf_log(log, 'onP', 'Slot')
                 area = rectangle_vents(input_values['vent_width'], input_values['vent_height'],
                                        input_values['vent_border'],
                                        input_values['number_width'], input_values['number_height'],
-                                       input_values['center_point'], True, input_values['radius'])
-                inputs.itemById("flow_area").formattedText = str(area)
+                                       input_values['center_point'][0], True, input_values['radius'])
+
+            # TODO get area working, problem with units
+            # Would need to re-add it to Common list in input changed
+            # area_string = get_area_string(area)
+            # inputs.itemById("flow_area").formattedText = area_string
 
             args.isValidResult = True
 
@@ -489,7 +566,7 @@ class VentMakerCommand(Fusion360CommandBase):
         vent_type_input.listItems.add('Slot', False)
         vent_type_input.listItems.add('Rectangular', False)
 
-        center_input = inputs.addSelectionInput('center_input', 'Center of Vent: ', 'Select Sketch Point')
+        center_input = inputs.addSelectionInput('center_point', 'Center of Vent: ', 'Select Sketch Point')
         center_input.addSelectionFilter('SketchPoints')
         center_input.setSelectionLimits(1, 1)
 

@@ -1,7 +1,54 @@
-import adsk.core, adsk.fusion, traceback
+import traceback
+
+import adsk.core
+import adsk.fusion
 
 handlers = [] 
 
+
+# Returns a dictionary for all inputs. Very useful for creating quick Fusion 360 Add-ins
+def get_inputs(command_inputs):
+
+    value_types = [adsk.core.BoolValueCommandInput.classType(), adsk.core.DistanceValueCommandInput.classType(),
+                   adsk.core.FloatSliderCommandInput.classType(), adsk.core.FloatSpinnerCommandInput.classType(),
+                   adsk.core.IntegerSliderCommandInput.classType(), adsk.core.IntegerSpinnerCommandInput.classType(),
+                   adsk.core.ValueCommandInput.classType(), adsk.core.SliderCommandInput.classType()]
+
+    list_types = [adsk.core.ButtonRowCommandInput.classType(), adsk.core.DropDownCommandInput.classType(),
+                  adsk.core.RadioButtonGroupCommandInput.classType()]
+
+    selection_types = [adsk.core.SelectionCommandInput.classType()]
+
+    input_values = {}
+    input_values.clear()
+
+    for command_input in command_inputs:
+
+        # If the input type is in this list the value of the input is returned
+        if command_input.objectType in value_types:
+            input_values[command_input.id] = command_input.value
+            input_values[command_input.id + '_input'] = command_input
+
+        # If the input type is in this list the name of the selected list item is returned
+        elif command_input.objectType in list_types:
+            input_values[command_input.id] = command_input.selectedItem.name
+            input_values[command_input.id + '_input'] = command_input
+
+        # If the input type is a selection an array of entities is returned
+        elif command_input.objectType in selection_types:
+            if command_input.selectionCount > 0:
+                selections = []
+                for i in range(0, command_input.selectionCount):
+                    selections.append(command_input.selection(i).entity)
+
+                input_values[command_input.id] = selections
+                input_values[command_input.id + '_input'] = command_input
+
+        else:
+            input_values[command_input.id] = command_input.name
+            input_values[command_input.id + '_input'] = command_input
+
+    return input_values
 
 # Removes the command control and definition 
 def clean_up_nav_drop_down_command(cmd_id, dc_cmd_id):
@@ -117,7 +164,6 @@ class Fusion360CommandBase:
         self.command_in_nav_bar = cmd_def.get('command_in_nav_bar', False)
         self.debug = debug
 
-        
         # global set of event handlers to keep them referenced for the duration of the command
         self.handlers = []
         
@@ -151,72 +197,75 @@ class Fusion360CommandBase:
         try:
             app = adsk.core.Application.get()
             ui = app.userInterface
-            commandDefinitions_ = ui.commandDefinitions
+            command_definitions = ui.commandDefinitions
             
             # Add command to drop down in nav bar
             if self.command_in_nav_bar:
                 
                 toolbars_ = ui.toolbars
-                navBar = toolbars_.itemById('NavToolbar')
-                toolbarControlsNAV = navBar.controls
+                nav_bar = toolbars_.itemById('NavToolbar')
+                toolbar_controls_nav = nav_bar.controls
                 
-                dropControl = toolbarControlsNAV.itemById(self.DC_CmdId) 
+                drop_control = toolbar_controls_nav.itemById(self.DC_CmdId) 
                 
-                if not dropControl:             
-                    dropControl = toolbarControlsNAV.addDropDown(self.DC_CmdId, self.DC_Resources, self.DC_CmdId) 
+                if not drop_control:             
+                    drop_control = toolbar_controls_nav.addDropDown(self.DC_CmdId, self.DC_Resources, self.DC_CmdId) 
                 
-                controls_to_add_to = dropControl.controls
+                controls_to_add_to = drop_control.controls
                 
-                newControl_ = toolbarControlsNAV.itemById(self.cmdId)
+                new_control = toolbar_controls_nav.itemById(self.cmdId)
             
             # Add command to workspace panel
             else:
-                toolbarPanel_ = toolbar_panel_by_id_in_workspace(self.workspace, self.toolbarPanelID)
-                controls_to_add_to = toolbarPanel_.controls               
-                newControl_ = controls_to_add_to.itemById(self.cmdId)
+                toolbar_panel = toolbar_panel_by_id_in_workspace(self.workspace, self.toolbarPanelID)
+                controls_to_add_to = toolbar_panel.controls               
+                new_control = controls_to_add_to.itemById(self.cmdId)
             
             # If control does not exist, create it
-            if not newControl_:
-                commandDefinition_ = commandDefinitions_.itemById(self.cmdId)
-                if not commandDefinition_:
-                    commandDefinition_ = commandDefinitions_.addButtonDefinition(self.cmdId, self.commandName, self.commandDescription, self.commandResources)
+            if not new_control:
+                command_definition = command_definitions.itemById(self.cmdId)
+                if not command_definition:
+                    command_definition = command_definitions.addButtonDefinition(self.cmdId, 
+                                                                                 self.commandName, 
+                                                                                 self.commandDescription, 
+                                                                                 self.commandResources)
                 
-                onCommandCreatedHandler_ = CommandCreatedEventHandler(self)
-                commandDefinition_.commandCreated.add(onCommandCreatedHandler_)
-                handlers.append(onCommandCreatedHandler_)
+                on_command_created_handler = CommandCreatedEventHandler(self)
+                command_definition.commandCreated.add(on_command_created_handler)
+                handlers.append(on_command_created_handler)
                 
-                newControl_ = controls_to_add_to.addCommand(commandDefinition_)
-                newControl_.isVisible = True
+                new_control = controls_to_add_to.addCommand(command_definition)
+                new_control.isVisible = True
         
         except:
             if ui:
                 ui.messageBox('AddIn Start Failed: {}'.format(traceback.format_exc()))
 
-    def onStop(self):
+    def on_stop(self):
         try:
             app = adsk.core.Application.get()
             ui = app.userInterface
 
             # Remove command from nav bar
             if self.command_in_nav_bar:
-                dropDownControl_ = command_control_by_id_in_nav_bar(self.DC_CmdId)
-                commandControlNav_ = command_control_by_id_in_drop_down(self.cmdId, dropDownControl_)
-                commandDefinitionNav_ = command_definition_by_id(self.cmdId)
-                destroy_object(commandControlNav_)
-                destroy_object(commandDefinitionNav_)
+                drop_down_control = command_control_by_id_in_nav_bar(self.DC_CmdId)
+                command_control_nav = command_control_by_id_in_drop_down(self.cmdId, drop_down_control)
+                command_definition_nav = command_definition_by_id(self.cmdId)
+                destroy_object(command_control_nav)
+                destroy_object(command_definition_nav)
                 
-                if dropDownControl_.controls.count == 0:
-                    commandDefinition_DropDown = command_definition_by_id(self.DC_CmdId)
-                    destroy_object(dropDownControl_)
-                    destroy_object(commandDefinition_DropDown)
+                if drop_down_control.controls.count == 0:
+                    command_definition_drop_down = command_definition_by_id(self.DC_CmdId)
+                    destroy_object(drop_down_control)
+                    destroy_object(command_definition_drop_down)
             
             # Remove command from workspace panel
             else:
-                toolbarPanel_ = toolbar_panel_by_id_in_workspace(self.workspace, self.toolbarPanelID)
-                commandControlPanel_ = command_control_by_id_in_panel(self.cmdId, toolbarPanel_)
-                commandDefinitionPanel_ = command_definition_by_id(self.cmdId)
-                destroy_object(commandControlPanel_)
-                destroy_object(commandDefinitionPanel_)
+                toolbar_panel = toolbar_panel_by_id_in_workspace(self.workspace, self.toolbarPanelID)
+                command_control_panel = command_control_by_id_in_panel(self.cmdId, toolbar_panel)
+                command_definition_panel = command_definition_by_id(self.cmdId)
+                destroy_object(command_control_panel)
+                destroy_object(command_definition_panel)
 
         except:
             if ui:
@@ -224,9 +273,9 @@ class Fusion360CommandBase:
 
 
 class ExecutePreviewHandler(adsk.core.CommandEventHandler):
-    def __init__(self, myObject):
+    def __init__(self, cmd_object):
         super().__init__()
-        self.myObject_ = myObject
+        self.cmd_object_ = cmd_object
         self.args = None
 
     def notify(self, args):
@@ -235,20 +284,22 @@ class ExecutePreviewHandler(adsk.core.CommandEventHandler):
             ui = app.userInterface
             command_ = args.firingEvent.sender
             inputs_ = command_.commandInputs
-            if self.myObject_.debug:
-                ui.messageBox('***Debug *** Preview: {} execute preview event triggered'.format(command_.parentCommandDefinition.id))
+            if self.cmd_object_.debug:
+                ui.messageBox('***Debug *** Preview: {} execute preview event triggered'.
+                              format(command_.parentCommandDefinition.id))
 
-            # self.args.isValidResult = True
-            self.myObject_.on_preview(command_, inputs_, args)
-            # valid_result = True
+            self.cmd_object_.on_preview(command_, inputs_, args)
+
         except:
             if ui:
                 ui.messageBox('Input changed event failed: {}'.format(traceback.format_exc()))
 
+
 class DestroyHandler(adsk.core.CommandEventHandler):
-    def __init__(self, myObject):
+    def __init__(self, cmd_object):
         super().__init__()
-        self.myObject_ = myObject
+        self.cmd_object_ = cmd_object
+
     def notify(self, args):
         # Code to react to the event.
         try:
@@ -257,19 +308,21 @@ class DestroyHandler(adsk.core.CommandEventHandler):
             command_ = args.firingEvent.sender
             inputs_ = command_.commandInputs
             reason_ = args.terminationReason
-            if self.myObject_.debug:
+            if self.cmd_object_.debug:
                 ui.messageBox('***Debug ***Command: {} destroyed'.format(command_.parentCommandDefinition.id))
                 ui.messageBox("***Debug ***Reason for termination= " + str(reason_))
-            self.myObject_.on_destroy(command_, inputs_, reason_)
+            self.cmd_object_.on_destroy(command_, inputs_, reason_)
             
         except:
             if ui:
                 ui.messageBox('Input changed event failed: {}'.format(traceback.format_exc()))
 
+
 class InputChangedHandler(adsk.core.InputChangedEventHandler):
-    def __init__(self, myObject):
+    def __init__(self, cmd_object):
         super().__init__()
-        self.myObject_ = myObject
+        self.cmd_object_ = cmd_object
+
     def notify(self, args):
         try:
             app = adsk.core.Application.get()
@@ -277,37 +330,42 @@ class InputChangedHandler(adsk.core.InputChangedEventHandler):
             command_ = args.firingEvent.sender
             inputs_ = command_.commandInputs
             changedInput_ = args.input 
-            if self.myObject_.debug:
+            if self.cmd_object_.debug:
                 ui.messageBox('***Debug ***Input: {} changed event triggered'.format(command_.parentCommandDefinition.id))
                 ui.messageBox('***Debug ***The Input: {} was the command'.format(changedInput_.id))
    
-            self.myObject_.on_input_changed(command_, inputs_, changedInput_)
+            self.cmd_object_.on_input_changed(command_, inputs_, changedInput_)
+
         except:
             if ui:
                 ui.messageBox('Input changed event failed: {}'.format(traceback.format_exc()))
 
+
 class CommandExecuteHandler(adsk.core.CommandEventHandler):
-    def __init__(self, myObject):
+    def __init__(self, cmd_object):
         super().__init__()
-        self.myObject_ = myObject
+        self.cmd_object_ = cmd_object
+
     def notify(self, args):
         try:
             app = adsk.core.Application.get()
             ui = app.userInterface
             command_ = args.firingEvent.sender
             inputs_ = command_.commandInputs
-            if self.myObject_.debug:
+            if self.cmd_object_.debug:
                 ui.messageBox('***Debug ***command: {} executed successfully'.format(command_.parentCommandDefinition.id))
-            self.myObject_.on_execute(command_, inputs_)
+            self.cmd_object_.on_execute(command_, inputs_)
             
         except:
             if ui:
                 ui.messageBox('command executed failed: {}'.format(traceback.format_exc()))
 
+
 class CommandCreatedEventHandler(adsk.core.CommandCreatedEventHandler):
-    def __init__(self, myObject):
+    def __init__(self, cmd_object):
         super().__init__()
-        self.myObject_ = myObject
+        self.cmd_object_ = cmd_object
+    
     def notify(self, args):
         try:
             global handlers
@@ -317,26 +375,27 @@ class CommandCreatedEventHandler(adsk.core.CommandCreatedEventHandler):
             command_ = args.command
             inputs_ = command_.commandInputs
             
-            onExecuteHandler_ = CommandExecuteHandler(self.myObject_)
-            command_.execute.add(onExecuteHandler_)
-            handlers.append(onExecuteHandler_)
+            on_execute_handler = CommandExecuteHandler(self.cmd_object_)
+            command_.execute.add(on_execute_handler)
+            handlers.append(on_execute_handler)
             
-            onInputChangedHandler_ = InputChangedHandler(self.myObject_)
-            command_.inputChanged.add(onInputChangedHandler_)
-            handlers.append(onInputChangedHandler_)
+            on_input_changed_handler = InputChangedHandler(self.cmd_object_)
+            command_.inputChanged.add(on_input_changed_handler)
+            handlers.append(on_input_changed_handler)
             
-            onDestroyHandler_ = DestroyHandler(self.myObject_)
-            command_.destroy.add(onDestroyHandler_)
-            handlers.append(onDestroyHandler_)
+            on_destroy_handler = DestroyHandler(self.cmd_object_)
+            command_.destroy.add(on_destroy_handler)
+            handlers.append(on_destroy_handler)
             
-            onExecutePreviewHandler_ = ExecutePreviewHandler(self.myObject_)
-            command_.executePreview.add(onExecutePreviewHandler_)
-            handlers.append(onExecutePreviewHandler_)
+            on_execute_preview_handler = ExecutePreviewHandler(self.cmd_object_)
+            command_.executePreview.add(on_execute_preview_handler)
+            handlers.append(on_execute_preview_handler)
             
-            if self.myObject_.debug:
+            if self.cmd_object_.debug:
                 ui.messageBox('***Debug ***Panel command created successfully')
             
-            self.myObject_.on_create(command_, inputs_)
+            self.cmd_object_.on_create(command_, inputs_)
+
         except:
                 if ui:
                     ui.messageBox('Panel command created failed: {}'.format(traceback.format_exc()))

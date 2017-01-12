@@ -1,9 +1,12 @@
 __author__ = 'rainsbp'
 
-import adsk.core, adsk.fusion, traceback
 import time
 import os
 from os.path import expanduser
+
+import adsk.core
+import adsk.fusion
+import traceback
 
 
 # Print a list of list of variables
