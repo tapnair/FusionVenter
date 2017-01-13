@@ -484,14 +484,13 @@ def change_inputs(command_inputs, vent_type):
 class VentMakerCommand(Fusion360CommandBase):
 
     # Runs when Fusion command would generate a preview after all inputs are valid or changed
-    def on_preview(self, command, inputs, args):
+    def on_preview(self, command, inputs, args, input_values):
 
         time_line = adsk.core.Application.get().activeProduct.timeline
 
         start_index = time_line.markerPosition
 
         log.clear()
-        input_values = get_inputs(inputs)
 
         try:
 
@@ -536,17 +535,16 @@ class VentMakerCommand(Fusion360CommandBase):
             # ui.messageBox('Vent Failed:\n {}'.format(traceback.format_exc()))
 
     # Runs when the command is destroyed.  Sometimes useful for cleanup after the fact
-    def on_destroy(self, command, inputs, reason_):
+    def on_destroy(self, command, inputs, reason_, input_values):
         pass
 
     # Runs when when any input in the command dialog is changed
-    def on_input_changed(self, command, inputs, changed_input):
+    def on_input_changed(self, command, inputs, changed_input, input_values):
         if changed_input.id == 'vent_type':
-            input_values = get_inputs(inputs)
             change_inputs(inputs, input_values['vent_type'])
 
     # Runs when the user presses ok button
-    def on_execute(self, command, inputs):
+    def on_execute(self, command, inputs, args, input_values):
         pass
 
     # Runs when user selects your command from Fusion UI, Build UI here

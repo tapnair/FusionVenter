@@ -175,16 +175,16 @@ class Fusion360CommandBase:
             if self.ui:
                 self.ui.messageBox('Could not get app or ui: {}'.format(traceback.format_exc()))
     
-    def on_preview(self, command, inputs, args):
+    def on_preview(self, command, inputs, args, input_values):
         pass 
 
-    def on_destroy(self, command, inputs, reason):
+    def on_destroy(self, command, inputs, reason, input_values):
         pass   
 
-    def on_input_changed(self, command, inputs, changed_input):
+    def on_input_changed(self, command_, command_inputs, changed_input, input_values):
         pass
 
-    def on_execute(self, command, inputs):
+    def on_execute(self, command, inputs, args, input_values):
         pass
 
     def on_create(self, command, inputs):
@@ -283,12 +283,12 @@ class ExecutePreviewHandler(adsk.core.CommandEventHandler):
             app = adsk.core.Application.get()
             ui = app.userInterface
             command_ = args.firingEvent.sender
-            inputs_ = command_.commandInputs
+            command_inputs = command_.commandInputs
             if self.cmd_object_.debug:
                 ui.messageBox('***Debug *** Preview: {} execute preview event triggered'.
                               format(command_.parentCommandDefinition.id))
-
-            self.cmd_object_.on_preview(command_, inputs_, args)
+            input_values = get_inputs(command_inputs)
+            self.cmd_object_.on_preview(command_, command_inputs, args, input_values)
 
         except:
             if ui:
@@ -306,12 +306,16 @@ class DestroyHandler(adsk.core.CommandEventHandler):
             app = adsk.core.Application.get()
             ui = app.userInterface
             command_ = args.firingEvent.sender
-            inputs_ = command_.commandInputs
+            command_inputs = command_.commandInputs
             reason_ = args.terminationReason
+
             if self.cmd_object_.debug:
                 ui.messageBox('***Debug ***Command: {} destroyed'.format(command_.parentCommandDefinition.id))
                 ui.messageBox("***Debug ***Reason for termination= " + str(reason_))
-            self.cmd_object_.on_destroy(command_, inputs_, reason_)
+
+            input_values = get_inputs(command_inputs)
+
+            self.cmd_object_.on_destroy(command_, command_inputs, reason_, input_values)
             
         except:
             if ui:
@@ -328,13 +332,16 @@ class InputChangedHandler(adsk.core.InputChangedEventHandler):
             app = adsk.core.Application.get()
             ui = app.userInterface
             command_ = args.firingEvent.sender
-            inputs_ = command_.commandInputs
-            changedInput_ = args.input 
+            command_inputs = command_.commandInputs
+            changed_input = args.input
+
             if self.cmd_object_.debug:
                 ui.messageBox('***Debug ***Input: {} changed event triggered'.format(command_.parentCommandDefinition.id))
                 ui.messageBox('***Debug ***The Input: {} was the command'.format(changedInput_.id))
-   
-            self.cmd_object_.on_input_changed(command_, inputs_, changedInput_)
+
+            input_values = get_inputs(command_inputs)
+
+            self.cmd_object_.on_input_changed(command_, command_inputs, changed_input, input_values)
 
         except:
             if ui:
@@ -351,10 +358,14 @@ class CommandExecuteHandler(adsk.core.CommandEventHandler):
             app = adsk.core.Application.get()
             ui = app.userInterface
             command_ = args.firingEvent.sender
-            inputs_ = command_.commandInputs
+            command_inputs = command_.commandInputs
+
             if self.cmd_object_.debug:
                 ui.messageBox('***Debug ***command: {} executed successfully'.format(command_.parentCommandDefinition.id))
-            self.cmd_object_.on_execute(command_, inputs_)
+
+            input_values = get_inputs(command_inputs)
+
+            self.cmd_object_.on_execute(command_, command_inputs, args, input_values)
             
         except:
             if ui:
