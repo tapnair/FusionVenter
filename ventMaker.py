@@ -7,12 +7,12 @@ command_definitions = []
 
 # Define parameters for vent maker command
 cmd = {
-    'commandName': 'Vent Maker',
-    'commandDescription': 'Demo Command 1 Description',
-    'commandResources': './resources',
-    'cmdId': 'cmdID_ventMaker',
+    'cmd_name': 'Vent Maker',
+    'cmd_description': 'Demo Command 1 Description',
+    'cmd_resources': './resources',
+    'cmd_id': 'cmdID_ventMaker',
     'workspace': 'FusionSolidEnvironment',
-    'toolbarPanelID': 'SolidScriptsAddinsPanel',
+    'toolbar_panel_id': 'SolidScriptsAddinsPanel',
     'class': VentMakerCommand
 }
 command_definitions.append(cmd)
