@@ -50,6 +50,7 @@ def get_inputs(command_inputs):
 
     return input_values
 
+
 # Removes the command control and definition 
 def clean_up_nav_drop_down_command(cmd_id, dc_cmd_id):
     
@@ -336,8 +337,8 @@ class InputChangedHandler(adsk.core.InputChangedEventHandler):
             changed_input = args.input
 
             if self.cmd_object_.debug:
-                ui.messageBox('***Debug ***Input: {} changed event triggered'.format(command_.parentCommandDefinition.id))
-                ui.messageBox('***Debug ***The Input: {} was the command'.format(changedInput_.id))
+                ui.messageBox('***Debug Input: {} changed event triggered'.format(command_.parentCommandDefinition.id))
+                ui.messageBox('***Debug The Input: {} was the command'.format(changed_input.id))
 
             input_values = get_inputs(command_inputs)
 
@@ -361,7 +362,7 @@ class CommandExecuteHandler(adsk.core.CommandEventHandler):
             command_inputs = command_.commandInputs
 
             if self.cmd_object_.debug:
-                ui.messageBox('***Debug ***command: {} executed successfully'.format(command_.parentCommandDefinition.id))
+                ui.messageBox('***Debug command: {} executed successfully'.format(command_.parentCommandDefinition.id))
 
             input_values = get_inputs(command_inputs)
 

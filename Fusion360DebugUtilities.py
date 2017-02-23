@@ -35,7 +35,7 @@ def perf_message(log):
     message_string = ''
 
     log_file_name = get_log_file_name()
-    log_file = open(log_file_name, 'w' )
+    log_file = open(log_file_name, 'w')
 
     total_t = log[-1][3] - log[0][3]
 

@@ -4,7 +4,7 @@ import traceback
 
 import adsk.core
 import adsk.fusion
-from .Fusion360CommandBase import Fusion360CommandBase, get_inputs
+from .Fusion360CommandBase import Fusion360CommandBase
 from .Fusion360DebugUtilities import perf_log
 
 
@@ -237,7 +237,7 @@ def to_next_extrude(profiles_, target_component, target_face, center_point_sketc
 
         return extrude_feature
 
-    except Exception as e:
+    except:
         adsk.core.Application.get().userInterface.messageBox('Sorry it looks like your vent is not completely '
                                                              'terminated by the opposite face\n\n')
         raise
