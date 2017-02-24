@@ -1,1 +1,6 @@
 theme: jekyll-theme-slate
+
+title: Fusion 360 Vent Maker
+description: Fusion 360 add-in for creating vents
+
+show_downloads: true
