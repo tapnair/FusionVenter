@@ -1,9 +1,15 @@
 # Fusion 360 Vent Maker
 Create vents quickly and easily
 
-Download [Here](https://github.com/tapnair/ventMaker/releases/download/V0.1/ventMaker.zip)
-
 ![ventMaker Cover](./resources/ventMaker_cover.png)
+
+
+# Installation
+[Click here to download the Add-in](https://github.com/tapnair/ventMaker/releases/download/V0.1/ventMaker.zip)
+
+_Note that due to submodules used in this project you need to use the above link to download, unless you are familiar with using terminal commands to pull github repos)_
+
+Follow the [installation instructions here](https://tapnair.github.io/installation.html) for your particular OS version of Fusion 360 
 
 
 Documentation to come later. For now:
