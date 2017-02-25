@@ -13,13 +13,12 @@ After downloading the zip file follow the [installation instructions here](https
 
 
 # Usage
+
 Documentation to come later. For now:
-
-
-Select a sketch point to use as the center of the vent.
-The sketch point must lie on a planar face (not a reference plane)
-The face of the sketch will determine the component for the feature
-The vent will be cut normal to the face up to the next face it encounters.
+ - Select a sketch point to use as the center of the vent.
+ - The sketch point must lie on a planar face (not a reference plane)
+ - The face of the sketch will determine the component for the feature
+ - The vent will be cut normal to the face up to the next face it encounters.
 
 # TODO / Enhancements:
 - Add ability to rotate vent
