@@ -27,3 +27,12 @@ Documentation to come later. For now:
 - Display Flow Area in proper units and calculate for circular
 - Defer preview checkbox to handle slow updates
 - Add more vent types and patterns
+
+## License
+Samples are licensed under the terms of the [MIT License](http://opensource.org/licenses/MIT). Please see the [LICENSE](LICENSE) file for full details.
+
+## Written by
+
+Written by [Patrick Rainsberry](https://twitter.com/prrainsberry) <br /> (Autodesk Fusion 360 Business Development)
+
+See more useful [Fusion 360 Utilities](https://tapnair.github.io/index.html)
