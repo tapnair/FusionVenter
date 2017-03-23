@@ -5,9 +5,8 @@ Create vents quickly and easily
 
 
 # Installation
-[Click here to download the Add-in](https://github.com/tapnair/ventMaker/releases/download/V0.1/ventMaker.zip)
+[Click here to download the Add-in](https://github.com/tapnair/ventMaker/archive/master.zip)
 
-_Note that due to submodules used in this project you need to use the above link to download, unless you are familiar with using terminal commands to pull github repos_
 
 After downloading the zip file follow the [installation instructions here](https://tapnair.github.io/installation.html) for your particular OS version of Fusion 360 
 
