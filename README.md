@@ -1,7 +1,7 @@
-# Fusion 360 Vent Maker
-Create vents quickly and easily
+# Venter
+Fusion 360 Addin to create vents quickly and easily
 
-![ventMaker Cover](./resources/ventMaker_cover.png)
+![Venter Cover](./resources/ventMaker_cover.png)
 
 
 # Installation
