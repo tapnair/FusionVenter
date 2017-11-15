@@ -1,4 +1,4 @@
-# Venter
+# FusionVenter
 Fusion 360 Addin to create vents quickly and easily
 
 ![Venter Cover](./resources/ventMaker_cover.png)
